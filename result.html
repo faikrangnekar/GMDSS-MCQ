@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMDSS MCQ Test - Result</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body id="result-page">
+  <header class="test-header">
+    <div class="header-left">
+      <span class="candidate-name-header" id="candidateNameHeader"></span>
+      <span class="test-set-header" id="testSetHeader"></span>
+    </div>
+    <div class="header-right">
+      <button type="button" id="logoutBtn" class="btn btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <div class="result-container">
+    <h1 class="result-title">Test Result</h1>
+
+    <div class="score-grid" id="scoreGrid"></div>
+
+    <div class="result-actions">
+      <button type="button" id="retryBtn" class="btn btn-primary">Retry Test</button>
+      <button type="button" id="homeBtn" class="btn btn-outline">Back to Home</button>
+    </div>
+
+    <h2 class="review-title">Answer Review</h2>
+    <div class="review-list" id="reviewList"></div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

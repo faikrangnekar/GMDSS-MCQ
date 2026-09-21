@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMDSS MCQ Test - Test Page</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body id="test-page">
+  <header class="test-header">
+    <div class="header-left">
+      <span class="candidate-name-header" id="candidateNameHeader"></span>
+      <span class="test-set-header" id="testSetHeader"></span>
+    </div>
+    <div class="header-right">
+      <div class="timer-box" id="timerBox">30:00</div>
+      <button type="button" id="logoutBtn" class="btn btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <main class="test-scroll">
+    <div class="scroll-note">Scroll down to answer all questions.</div>
+    <div class="questions-list" id="questionsList"></div>
+    <div class="submit-area">
+      <button type="button" id="submitBtn" class="btn btn-danger btn-lg">Submit Test</button>
+    </div>
+  </main>
+
+  <div class="modal-overlay hidden" id="submitModal">
+    <div class="modal">
+      <h3>Confirm Submission</h3>
+      <p id="modalSummary"></p>
+      <div class="modal-actions">
+        <button type="button" id="cancelSubmitBtn" class="btn btn-outline">Back to Test</button>
+        <button type="button" id="confirmSubmitBtn" class="btn btn-danger">Submit Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="autoSubmitModal">
+    <div class="modal">
+      <h3>Time is Up!</h3>
+      <p>Your test has been submitted automatically.</p>
+    </div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

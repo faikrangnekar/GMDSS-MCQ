@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMDSS MCQ Test - Create Account</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body id="signup-page">
+  <div class="page-wrapper">
+    <div class="home-card auth-card">
+      <div class="brand-logo">GMDSS</div>
+      <h1 class="main-title">CREATE ACCOUNT</h1>
+      <p class="subtitle">Register to access the GMDSS MCQ practice test platform.</p>
+
+      <form id="signup-form" novalidate>
+        <div class="field-group">
+          <label for="signup-name">Full Name</label>
+          <input
+            type="text"
+            id="signup-name"
+            placeholder="Enter your full name"
+            autocomplete="name"
+            maxlength="50"
+          />
+        </div>
+
+        <div class="field-group">
+          <label for="signup-dob">Birth Date</label>
+          <input type="date" id="signup-dob" autocomplete="bday" />
+        </div>
+
+        <div class="field-group">
+          <label for="signup-email">Email Address</label>
+          <input
+            type="email"
+            id="signup-email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            maxlength="100"
+          />
+        </div>
+
+        <div class="field-group">
+          <label for="signup-phone">Contact / Phone Number</label>
+          <input
+            type="tel"
+            id="signup-phone"
+            placeholder="+91 98765 43210"
+            autocomplete="tel"
+            maxlength="20"
+          />
+        </div>
+
+        <div class="field-group">
+          <label for="signup-password">Password</label>
+          <input
+            type="password"
+            id="signup-password"
+            placeholder="At least 6 characters"
+            autocomplete="new-password"
+            maxlength="72"
+          />
+        </div>
+
+        <div class="field-group">
+          <label for="signup-confirm">Confirm Password</label>
+          <input
+            type="password"
+            id="signup-confirm"
+            placeholder="Re-enter your password"
+            autocomplete="new-password"
+            maxlength="72"
+          />
+        </div>
+
+        <div id="auth-message" class="form-error" role="alert" hidden></div>
+
+        <button type="submit" id="signup-btn" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+
+      <p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-config.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>

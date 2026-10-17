@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMDSS MCQ Test - Test Page</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body id="test-page">
+  <header class="test-header">
+    <div class="header-left">
+      <span class="candidate-name-header" id="candidateNameHeader"></span>
+      <span class="test-set-header" id="testSetHeader"></span>
+    </div>
+    <div class="header-right">
+      <div class="timer-box" id="timerBox">30:00</div>
+      <button type="button" id="homeBtn" class="btn btn-outline">Home</button>
+      <button type="button" id="logoutBtn" class="btn btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <main class="test-scroll">
+    <div class="scroll-note">Scroll down to answer all questions.</div>
+    <div class="questions-list" id="questionsList"></div>
+    <div class="submit-area">
+      <button type="button" id="submitBtn" class="btn btn-danger btn-lg">Submit Test</button>
+      <button type="button" id="reportWrongBtn" class="btn btn-outline report-btn">
+        Report Question
+      </button>
+    </div>
+  </main>
+
+  <div class="modal-overlay hidden" id="submitModal">
+    <div class="modal">
+      <h3>Confirm Submission</h3>
+      <p id="modalSummary"></p>
+      <div class="modal-actions">
+        <button type="button" id="cancelSubmitBtn" class="btn btn-outline">Back to Test</button>
+        <button type="button" id="confirmSubmitBtn" class="btn btn-danger">Submit Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="autoSubmitModal">
+    <div class="modal">
+      <h3>Time is Up!</h3>
+      <p>Your test has been submitted automatically.</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="reportModal">
+    <div class="modal report-modal">
+      <div id="reportFormView">
+        <h3>Report Question</h3>
+        <p>Think the marked correct answer is wrong? Let us know and it will be reviewed.</p>
+
+        <form id="report-form" class="modal-form" novalidate>
+          <div class="field-group">
+            <label for="report-qnum">Question Number</label>
+            <input
+              type="number"
+              id="report-qnum"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="e.g. 12"
+            />
+          </div>
+
+          <div class="field-group">
+            <label for="report-answer">The answer you believe is correct</label>
+            <textarea
+              id="report-answer"
+              rows="2"
+              maxlength="300"
+              placeholder="Type the correct answer or option letter..."
+            ></textarea>
+          </div>
+
+          <div class="field-group">
+            <label for="report-note">Extra note (optional)</label>
+            <textarea
+              id="report-note"
+              rows="2"
+              maxlength="500"
+              placeholder="Anything that helps us verify..."
+            ></textarea>
+          </div>
+
+          <div id="report-error" class="form-error" role="alert" hidden></div>
+
+          <div class="modal-actions">
+            <button type="button" id="cancelReportBtn" class="btn btn-outline">Cancel</button>
+            <button type="submit" id="sendReportBtn" class="btn btn-primary">Send Report</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="reportSuccessView" hidden>
+        <h3>Thank You!</h3>
+        <p>Your report has been sent for review. We appreciate your help in keeping the answers accurate.</p>
+        <div class="modal-actions">
+          <button type="button" id="closeReportBtn" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-config.js"></script>
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

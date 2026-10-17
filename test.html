@@ -14,6 +14,7 @@
     </div>
     <div class="header-right">
       <div class="timer-box" id="timerBox">30:00</div>
+      <button type="button" id="homeBtn" class="btn btn-outline">Home</button>
       <button type="button" id="logoutBtn" class="btn btn-logout">Logout</button>
     </div>
   </header>
@@ -23,6 +24,9 @@
     <div class="questions-list" id="questionsList"></div>
     <div class="submit-area">
       <button type="button" id="submitBtn" class="btn btn-danger btn-lg">Submit Test</button>
+      <button type="button" id="reportWrongBtn" class="btn btn-outline report-btn">
+        Report Question
+      </button>
     </div>
   </main>
 
@@ -44,6 +48,66 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="reportModal">
+    <div class="modal report-modal">
+      <div id="reportFormView">
+        <h3>Report Question</h3>
+        <p>Think the marked correct answer is wrong? Let us know and it will be reviewed.</p>
+
+        <form id="report-form" class="modal-form" novalidate>
+          <div class="field-group">
+            <label for="report-qnum">Question Number</label>
+            <input
+              type="number"
+              id="report-qnum"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="e.g. 12"
+            />
+          </div>
+
+          <div class="field-group">
+            <label for="report-answer">The answer you believe is correct</label>
+            <textarea
+              id="report-answer"
+              rows="2"
+              maxlength="300"
+              placeholder="Type the correct answer or option letter..."
+            ></textarea>
+          </div>
+
+          <div class="field-group">
+            <label for="report-note">Extra note (optional)</label>
+            <textarea
+              id="report-note"
+              rows="2"
+              maxlength="500"
+              placeholder="Anything that helps us verify..."
+            ></textarea>
+          </div>
+
+          <div id="report-error" class="form-error" role="alert" hidden></div>
+
+          <div class="modal-actions">
+            <button type="button" id="cancelReportBtn" class="btn btn-outline">Cancel</button>
+            <button type="submit" id="sendReportBtn" class="btn btn-primary">Send Report</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="reportSuccessView" hidden>
+        <h3>Thank You!</h3>
+        <p>Your report has been sent for review. We appreciate your help in keeping the answers accurate.</p>
+        <div class="modal-actions">
+          <button type="button" id="closeReportBtn" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-config.js"></script>
   <script src="questions.js"></script>
   <script src="script.js"></script>
 </body>

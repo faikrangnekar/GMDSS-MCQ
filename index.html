@@ -37,9 +37,17 @@
       <button type="button" id="logoutBtn" class="btn btn-outline btn-block" hidden>Logout</button>
 
       <p class="small-note">30 questions &middot; 30 minutes &middot; Select the best answer for each question.</p>
+
+      <p class="small-note" id="account-note" hidden></p>
+
+      <p class="auth-switch">
+        <a href="login.html">Log in</a> &middot; <a href="signup.html">Create an account</a>
+      </p>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-config.js"></script>
   <script src="questions.js"></script>
   <script src="script.js"></script>
 </body>

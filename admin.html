@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>GMDSS MCQ Test - Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body id="admin-page">
+  <div class="page-wrapper">
+
+    <!-- ==================== LOGIN VIEW ==================== -->
+    <div class="home-card" id="login-view">
+      <div class="brand-logo">GMDSS</div>
+      <h1 class="main-title">ADMIN LOGIN</h1>
+      <p class="subtitle">Administrator access to the GMDSS MCQ test platform.</p>
+
+      <form id="admin-login-form" novalidate>
+        <div class="field-group">
+          <label for="admin-email">Email</label>
+          <input
+            type="email"
+            id="admin-email"
+            placeholder="admin@example.com"
+            autocomplete="username"
+            maxlength="100"
+          />
+        </div>
+
+        <div class="field-group">
+          <label for="admin-password">Password</label>
+          <input
+            type="password"
+            id="admin-password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            maxlength="200"
+          />
+        </div>
+
+        <p class="auth-forgot"><a href="reset-password.html">Forgot password?</a></p>
+
+        <div id="login-error" class="form-error" role="alert" hidden></div>
+
+        <button type="submit" id="login-btn" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+
+      <p class="small-note">This page is for authorised administrators only. All access is verified by the server.</p>
+    </div>
+
+    <!-- ==================== DASHBOARD VIEW ==================== -->
+    <div id="dashboard-view" hidden>
+      <header class="test-header">
+        <div class="header-left">
+          <span class="candidate-name-header">GMDSS Administration</span>
+          <span class="test-set-header" id="adminEmailLabel"></span>
+        </div>
+        <div class="header-right">
+          <button type="button" id="adminLogoutBtn" class="btn btn-logout">Sign Out</button>
+        </div>
+      </header>
+
+      <main class="admin-main">
+        <h1 class="admin-title">Dashboard</h1>
+
+        <div id="dashboard-error" class="error-banner" role="alert" hidden></div>
+
+        <h2 class="visually-hidden">Summary</h2>
+        <div class="score-grid" id="statGrid"></div>
+
+        <section class="panel">
+          <h2 class="panel-title">Registered Candidates</h2>
+          <div id="candidatesContent"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">Quiz Attempts</h2>
+          <div id="attemptsContent"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Reported Wrong Answers</h2>
+            <label class="filter-label" for="reportsFilter">
+              Show
+              <select id="reportsFilter">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </label>
+          </div>
+          <div id="reportsContent"></div>
+        </section>
+      </main>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

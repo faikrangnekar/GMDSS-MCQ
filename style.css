@@ -115,7 +115,8 @@ body {
 }
 
 .field-group input,
-.field-group select {
+.field-group select,
+.field-group textarea {
   width: 100%;
   padding: 12px 14px;
   border: 1.5px solid var(--border);
@@ -127,14 +128,21 @@ body {
   font-family: inherit;
 }
 
+.field-group textarea {
+  resize: vertical;
+  min-height: 52px;
+}
+
 .field-group input:focus,
-.field-group select:focus {
+.field-group select:focus,
+.field-group textarea:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(43, 127, 255, 0.15);
 }
 
-.field-group input.input-error {
+.field-group input.input-error,
+.field-group textarea.input-error {
   border-color: var(--red);
 }
 
@@ -154,6 +162,76 @@ body {
   font-size: 0.88rem;
   text-align: center;
   line-height: 1.5;
+}
+
+/* ==================== AUTH PAGES ==================== */
+
+.auth-card {
+  max-width: 520px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--navy);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox-row label {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.form-success {
+  color: var(--green-dark);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 6px;
+  min-height: 1.2em;
+  line-height: 1.5;
+}
+
+.auth-forgot {
+  text-align: right;
+  margin: -8px 0 16px;
+  font-size: 0.88rem;
+}
+
+.auth-forgot a {
+  color: var(--blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-forgot a:hover {
+  text-decoration: underline;
+}
+
+.auth-switch {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.auth-switch a {
+  color: var(--blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
 }
 
 /* ==================== BUTTONS ==================== */
@@ -428,7 +506,9 @@ body {
 .submit-area {
   margin-top: 26px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .submit-area .btn {
@@ -437,6 +517,12 @@ body {
   min-height: 56px;
   font-size: 1.15rem;
   padding: 16px 24px;
+}
+
+.submit-area .report-btn {
+  min-height: 48px;
+  font-size: 0.98rem;
+  padding: 12px 22px;
 }
 
 /* ==================== MODALS ==================== */
@@ -485,6 +571,18 @@ body {
   gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.modal-form {
+  text-align: left;
+}
+
+.modal-form .field-group {
+  margin-bottom: 14px;
+}
+
+.report-modal .modal-actions {
+  margin-top: 4px;
 }
 
 /* ==================== RESULT PAGE ==================== */
@@ -696,6 +794,15 @@ body {
     padding: 5px 12px;
   }
 
+  .header-right {
+    gap: 6px;
+  }
+
+  .header-right .btn {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+
   .test-scroll {
     margin: 12px auto;
     padding: 0 12px 24px;
@@ -754,7 +861,8 @@ body {
   }
 
   .field-group input,
-  .field-group select {
+  .field-group select,
+  .field-group textarea {
     font-size: 16px;
     min-height: 48px;
   }

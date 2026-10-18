@@ -843,7 +843,8 @@ function initTestPage(authClient) {
 }
 
 if (isTestPage) {
-  requireSession(function (client) {
+  requireSession(function (client, session) {
+    recordSessionStart(client, session);
     initTestPage(client);
   });
 }
@@ -866,7 +867,8 @@ if (isResultPage) {
   }
 
   /* Only show results to a signed-in candidate. */
-  requireSession(function () {
+  requireSession(function (client, session) {
+    recordSessionStart(client, session);
     const result = store.get(KEYS.result, null);
 
     if (!result) {

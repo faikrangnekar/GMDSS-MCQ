@@ -275,35 +275,48 @@ function recordSessionStart(client, session) {
     }
   }
 
-  function send(body, canFallback) {
-    try {
-      client
-        .from("login_history")
-        .insert(body)
-        .then(function (res) {
-          if (res && res.error) {
-            if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
-              /* Older schema (SQL not re-run yet): retry without the column. */
-              send(
-                { user_id: body.user_id, candidate_name: body.candidate_name },
-                false
-              );
-              return;
-            }
-            console.warn("Could not record login:", res.error.message);
-          } else {
-            markRecorded();
-          }
-        })
-        .catch(function (err) {
-          console.warn("Could not record login:", err && err.message ? err.message : err);
-        });
-    } catch (e) {
-      console.warn("Could not record login:", e && e.message ? e.message : e);
-    }
+  function sendOnce(body) {
+    return new Promise(function (resolve) {
+      try {
+        client
+          .from("login_history")
+          .insert(body)
+          .then(function (res) {
+            resolve(res && res.error ? res.error : null);
+          })
+          .catch(function (err) {
+            resolve(err || new Error("Unknown error"));
+          });
+      } catch (e) {
+        resolve(e);
+      }
+    });
   }
 
-  send(payload, true);
+  (async function () {
+    let body = payload;
+    let error = await sendOnce(body);
+
+    if (error && error.message && error.message.indexOf("login_local") !== -1) {
+      /* Older schema (SQL not re-run yet): retry without the column. */
+      body = { user_id: payload.user_id, candidate_name: payload.candidate_name };
+      error = await sendOnce(body);
+    }
+
+    if (error) {
+      /* One delayed retry covers transient network failures. */
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 1500);
+      });
+      error = await sendOnce(body);
+    }
+
+    if (error) {
+      console.warn("Could not record login:", error.message || error);
+    } else {
+      markRecorded();
+    }
+  })();
 }
 
 /* Prefill the candidate name field from the signed-in account. */

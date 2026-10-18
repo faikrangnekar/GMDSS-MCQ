@@ -156,46 +156,65 @@ function markLoginRecorded() {
   }
 }
 
+/* Returns a Promise that resolves true on success / false on failure so
+   callers can await the insert before navigating away. Redirecting while
+   the insert is still in flight aborts it and the row is silently lost. */
 function recordLogin(client, userId, candidateName) {
-  if (!client || !userId) return;
+  if (!client || !userId) return Promise.resolve(false);
 
   const payload = { user_id: userId, login_local: formatLocalNow() };
   if (candidateName && String(candidateName).trim()) {
     payload.candidate_name = String(candidateName).trim();
   }
 
-  function send(body, canFallback) {
-    try {
-      client
-        .from("login_history")
-        .insert(body)
-        .then(function (res) {
-          if (res && res.error) {
-            if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
-              /* Older schema (SQL not re-run yet): retry without the column. */
-              send(
-                {
-                  user_id: body.user_id,
-                  candidate_name: body.candidate_name
-                },
-                false
-              );
-              return;
-            }
-            console.warn("Could not record login:", res.error.message);
-          } else {
-            markLoginRecorded();
-          }
-        })
-        .catch(function (err) {
-          console.warn("Could not record login:", err && err.message ? err.message : err);
-        });
-    } catch (e) {
-      console.warn("Could not record login:", e && e.message ? e.message : e);
-    }
+  function sendOnce(body) {
+    return new Promise(function (resolve) {
+      try {
+        client
+          .from("login_history")
+          .insert(body)
+          .then(function (res) {
+            resolve(res && res.error ? res.error : null);
+          })
+          .catch(function (err) {
+            resolve(err || new Error("Unknown error"));
+          });
+      } catch (e) {
+        resolve(e);
+      }
+    });
   }
 
-  send(payload, true);
+  function delay(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  return (async function () {
+    let body = payload;
+    let error = await sendOnce(body);
+
+    if (error && error.message && error.message.indexOf("login_local") !== -1) {
+      /* Older schema (SQL not re-run yet): retry without the column. */
+      body = { user_id: payload.user_id, candidate_name: payload.candidate_name };
+      error = await sendOnce(body);
+    }
+
+    if (error) {
+      /* One delayed retry covers transient network failures. */
+      await delay(1500);
+      error = await sendOnce(body);
+    }
+
+    if (error) {
+      console.warn("Could not record login:", error.message || error);
+      return false;
+    }
+
+    markLoginRecorded();
+    return true;
+  })();
 }
 
 /* ------------------ Page detection ------------------ */
@@ -331,12 +350,18 @@ if (isSignupPage) {
     }
 
     if (session) {
-      /* Immediate sign-in counts as the candidate's first login. */
-      if (user) recordLogin(client, user.id, fullName);
+      /* Immediate sign-in counts as the candidate's first login. Await the
+         insert (capped) so the redirect cannot abort it mid-flight. */
       showAuthMessage(messageEl, "Account created. Redirecting...", true);
-      setTimeout(function () {
-        window.location.href = "index.html";
-      }, 1200);
+      if (user) {
+        await Promise.race([
+          recordLogin(client, user.id, fullName),
+          new Promise(function (resolve) {
+            setTimeout(resolve, 5000);
+          })
+        ]);
+      }
+      window.location.href = "index.html";
     } else {
       showAuthMessage(
         messageEl,
@@ -430,15 +455,22 @@ if (isLoginPage) {
       return;
     }
 
+    showAuthMessage(messageEl, "Signed in. Redirecting...", true);
+
+    /* Await the login_history insert (with a hard cap) BEFORE navigating,
+       otherwise the redirect aborts the in-flight request and the row is
+       lost — this was the cause of logins missing from the table. */
     if (result.data && result.data.user) {
       const meta = result.data.user.user_metadata || {};
-      recordLogin(client, result.data.user.id, meta.display_name || "");
+      await Promise.race([
+        recordLogin(client, result.data.user.id, meta.display_name || ""),
+        new Promise(function (resolve) {
+          setTimeout(resolve, 5000);
+        })
+      ]);
     }
 
-    showAuthMessage(messageEl, "Signed in. Redirecting...", true);
-    setTimeout(function () {
-      window.location.href = "index.html";
-    }, 800);
+    window.location.href = "index.html";
   });
 }
 

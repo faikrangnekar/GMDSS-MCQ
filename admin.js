@@ -259,9 +259,11 @@ loginForm.addEventListener("submit", async function (e) {
     return;
   }
 
-  /* Best-effort: record the sign-in time in login_history. Failures are
-     logged to the console (most common cause: supabase-login-history.sql
-     has not been run in the SQL Editor). */
+  /* Best-effort: record the sign-in time in login_history. Awaited (with a
+     hard cap and one retry) so the dashboard's follow-up reads/navigation
+     cannot abort the insert mid-flight. Failures are logged to the console
+     (most common cause: supabase-login-history.sql has not been run in the
+     SQL Editor). */
   if (data && data.user) {
     try {
       const meta = data.user.user_metadata || {};
@@ -271,26 +273,51 @@ loginForm.addEventListener("submit", async function (e) {
         login_local: formatLocalNow()
       };
 
-      function sendLogin(body, canFallback) {
-        supabaseClient
-          .from("login_history")
-          .insert(body)
-          .then(function (res) {
-            if (res && res.error) {
-              if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
-                /* Older schema (SQL not re-run yet): retry without the column. */
-                sendLogin({ user_id: body.user_id, candidate_name: body.candidate_name }, false);
-                return;
-              }
-              console.warn("Could not record login:", res.error.message);
-            }
-          })
-          .catch(function (err) {
-            console.warn("Could not record login:", err && err.message ? err.message : err);
-          });
+      function sendLoginOnce(body) {
+        return new Promise(function (resolve) {
+          try {
+            supabaseClient
+              .from("login_history")
+              .insert(body)
+              .then(function (res) {
+                resolve(res && res.error ? res.error : null);
+              })
+              .catch(function (err) {
+                resolve(err || new Error("Unknown error"));
+              });
+          } catch (e) {
+            resolve(e);
+          }
+        });
       }
 
-      sendLogin(loginPayload, true);
+      await Promise.race(
+        (async function () {
+          let body = loginPayload;
+          let loginError = await sendLoginOnce(body);
+
+          if (loginError && loginError.message && loginError.message.indexOf("login_local") !== -1) {
+            /* Older schema (SQL not re-run yet): retry without the column. */
+            body = { user_id: loginPayload.user_id, candidate_name: loginPayload.candidate_name };
+            loginError = await sendLoginOnce(body);
+          }
+
+          if (loginError) {
+            /* One delayed retry covers transient network failures. */
+            await new Promise(function (resolve) {
+              setTimeout(resolve, 1500);
+            });
+            loginError = await sendLoginOnce(body);
+          }
+
+          if (loginError) {
+            console.warn("Could not record login:", loginError.message || loginError);
+          }
+        })(),
+        new Promise(function (resolve) {
+          setTimeout(resolve, 5000);
+        })
+      );
     } catch (e) {
       console.warn("Could not record login:", e && e.message ? e.message : e);
     }

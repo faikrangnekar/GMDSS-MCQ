@@ -146,6 +146,43 @@ body {
   border-color: var(--red);
 }
 
+/* Password field with show/hide toggle (login page) */
+
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 66px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1.2;
+}
+
+.password-toggle:hover {
+  text-decoration: underline;
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+  text-decoration: none;
+}
+
 .form-error {
   color: var(--red);
   font-size: 0.85rem;

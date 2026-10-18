@@ -283,6 +283,19 @@ if (isLoginPage) {
   const rememberInput = document.getElementById("remember-me");
   const messageEl = document.getElementById("auth-message");
   const submitBtn = document.getElementById("login-btn");
+  const togglePasswordBtn = document.getElementById("toggle-password");
+
+  /* Show/hide password: lets the candidate reveal what they have typed
+     without retyping it. */
+  if (togglePasswordBtn && passwordInput) {
+    togglePasswordBtn.addEventListener("click", function () {
+      const show = passwordInput.type === "password";
+      passwordInput.type = show ? "text" : "password";
+      togglePasswordBtn.textContent = show ? "Hide" : "Show";
+      togglePasswordBtn.setAttribute("aria-pressed", show ? "true" : "false");
+      passwordInput.focus();
+    });
+  }
 
   /* If a session already exists, go straight to the test selection page. */
   const existingClient = makeAuthClient(rememberPreference());

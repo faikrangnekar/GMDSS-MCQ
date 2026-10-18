@@ -27,13 +27,22 @@
 
         <div class="field-group">
           <label for="login-password">Password</label>
-          <input
-            type="password"
-            id="login-password"
-            placeholder="Enter your password"
-            autocomplete="current-password"
-            maxlength="72"
-          />
+          <div class="password-wrap">
+            <input
+              type="password"
+              id="login-password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              maxlength="72"
+            />
+            <button
+              type="button"
+              id="toggle-password"
+              class="password-toggle"
+              aria-pressed="false"
+              aria-controls="login-password"
+            >Show</button>
+          </div>
         </div>
 
         <p class="auth-forgot"><a href="reset-password.html">Forgot password?</a></p>

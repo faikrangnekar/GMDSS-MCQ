@@ -125,6 +125,38 @@ function isValidBirthDate(value) {
   return d.getTime() <= Date.now();
 }
 
+/* ------------------ Login recording ------------------ */
+
+/* Writes a row to public.login_history so the admin dashboard can show
+   each candidate's last login. Best-effort: it must never block or fail
+   the login itself, but failures are logged to the console so problems
+   (most commonly: the supabase-login-history.sql file was not run) are
+   visible instead of silent. */
+function recordLogin(client, userId, candidateName) {
+  if (!client || !userId) return;
+
+  const payload = { user_id: userId };
+  if (candidateName && String(candidateName).trim()) {
+    payload.candidate_name = String(candidateName).trim();
+  }
+
+  try {
+    client
+      .from("login_history")
+      .insert(payload)
+      .then(function (res) {
+        if (res && res.error) {
+          console.warn("Could not record login:", res.error.message);
+        }
+      })
+      .catch(function (err) {
+        console.warn("Could not record login:", err && err.message ? err.message : err);
+      });
+  } catch (e) {
+    console.warn("Could not record login:", e && e.message ? e.message : e);
+  }
+}
+
 /* ------------------ Page detection ------------------ */
 
 const isSignupPage = !!document.getElementById("signup-page");
@@ -258,6 +290,8 @@ if (isSignupPage) {
     }
 
     if (session) {
+      /* Immediate sign-in counts as the candidate's first login. */
+      if (user) recordLogin(client, user.id, fullName);
       showAuthMessage(messageEl, "Account created. Redirecting...", true);
       setTimeout(function () {
         window.location.href = "index.html";
@@ -353,6 +387,11 @@ if (isLoginPage) {
     if (result.error) {
       showAuthMessage(messageEl, "Sign-in failed: " + result.error.message, false);
       return;
+    }
+
+    if (result.data && result.data.user) {
+      const meta = result.data.user.user_metadata || {};
+      recordLogin(client, result.data.user.id, meta.display_name || "");
     }
 
     showAuthMessage(messageEl, "Signed in. Redirecting...", true);

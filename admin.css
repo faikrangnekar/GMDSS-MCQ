@@ -166,6 +166,30 @@
   overflow-wrap: anywhere;
 }
 
+/* Candidate access controls (candidates table) */
+
+.access-select,
+.access-date {
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  min-height: 38px;
+  width: 100%;
+  min-width: 118px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.access-select:focus,
+.access-date:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(43, 127, 255, 0.15);
+}
+
 @media (max-width: 600px) {
   .admin-main {
     padding: 16px 12px 40px;

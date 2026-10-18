@@ -16,7 +16,6 @@ const adminEmailLabel = document.getElementById("adminEmailLabel");
 const dashboardErrorEl = document.getElementById("dashboard-error");
 const statGrid = document.getElementById("statGrid");
 const candidatesContent = document.getElementById("candidatesContent");
-const attemptsContent = document.getElementById("attemptsContent");
 const reportsContent = document.getElementById("reportsContent");
 const reportsFilter = document.getElementById("reportsFilter");
 
@@ -25,7 +24,7 @@ const PLACEHOLDER_PREFIX = "YOUR_TEST";
 let supabaseClient = null;
 let currentAdmin = null;
 let allReports = [];
-let dashboardData = { profiles: null, attempts: null, access: null };
+let dashboardData = { profiles: null, access: null };
 
 /* ------------------ UI helpers ------------------ */
 
@@ -51,10 +50,9 @@ function showLogin() {
   passwordInput.value = "";
   statGrid.innerHTML = "";
   candidatesContent.innerHTML = "";
-  attemptsContent.innerHTML = "";
   reportsContent.innerHTML = "";
   allReports = [];
-  dashboardData = { profiles: null, attempts: null, access: null };
+  dashboardData = { profiles: null, access: null };
   if (reportsFilter) reportsFilter.value = "all";
   dashboardErrorEl.hidden = true;
 }
@@ -250,6 +248,29 @@ loginForm.addEventListener("submit", async function (e) {
     return;
   }
 
+  /* Best-effort: record the sign-in time in login_history. Failures are
+     logged to the console (most common cause: supabase-login-history.sql
+     has not been run in the SQL Editor). */
+  if (data && data.user) {
+    try {
+      const meta = data.user.user_metadata || {};
+      supabaseClient
+        .from("login_history")
+        .insert({
+          user_id: data.user.id,
+          candidate_name: meta.display_name || data.user.email || null
+        })
+        .then(function (res) {
+          if (res && res.error) console.warn("Could not record login:", res.error.message);
+        })
+        .catch(function (err) {
+          console.warn("Could not record login:", err && err.message ? err.message : err);
+        });
+    } catch (e) {
+      console.warn("Could not record login:", e && e.message ? e.message : e);
+    }
+  }
+
   passwordInput.value = "";
   await verifyAdmin(data.user);
 });
@@ -268,21 +289,19 @@ async function loadDashboard() {
   setDashboardError("");
   statGrid.innerHTML = "";
   candidatesContent.innerHTML = "";
-  attemptsContent.innerHTML = "";
   reportsContent.innerHTML = "";
   addLoadingState(candidatesContent);
-  addLoadingState(attemptsContent);
   addLoadingState(reportsContent);
 
   let results;
   try {
     results = await Promise.all([
       supabaseClient.from("profiles").select("id, display_name, role, created_at"),
-      supabaseClient
-        .from("quiz_attempts")
-        .select("id, user_id, set_name, total_questions, correct_answers, wrong_answers, score, completed_at")
-        .order("completed_at", { ascending: false }),
       supabaseClient.from("candidate_access").select("user_id, payment_status, expires_at, updated_at"),
+      supabaseClient
+        .from("login_history")
+        .select("user_id, login_at")
+        .order("login_at", { ascending: false }),
       supabaseClient
         .from("wrong_answer_reports")
         .select("*")
@@ -294,20 +313,19 @@ async function loadDashboard() {
     const message = "Could not reach the server. Check your connection and try again.";
     setDashboardError(message);
     renderEmptyState(candidatesContent, message);
-    renderEmptyState(attemptsContent, message);
     renderEmptyState(reportsContent, message);
     return;
   }
 
   const profilesResult = results[0];
-  const attemptsResult = results[1];
-  const accessResult = results[2];
+  const accessResult = results[1];
+  const loginsResult = results[2];
   const reportsResult = results[3];
 
   const errors = [];
   if (profilesResult.error) errors.push("Profiles: " + profilesResult.error.message);
-  if (attemptsResult.error) errors.push("Quiz attempts: " + attemptsResult.error.message);
   if (accessResult.error) errors.push("Candidate access: " + accessResult.error.message);
+  if (loginsResult.error) errors.push("Login history: " + loginsResult.error.message);
   if (reportsResult.error) errors.push("Wrong answer reports: " + reportsResult.error.message);
 
   if (errors.length > 0) {
@@ -318,14 +336,22 @@ async function loadDashboard() {
   }
 
   const profiles = profilesResult.error ? null : (profilesResult.data || []);
-  const attempts = attemptsResult.error ? null : (attemptsResult.data || []);
   const access = accessResult.error ? null : (accessResult.data || []);
+  const logins = loginsResult.error ? [] : (loginsResult.data || []);
   allReports = reportsResult.error ? [] : (reportsResult.data || []);
-  dashboardData = { profiles: profiles, attempts: attempts, access: access };
+  dashboardData = { profiles: profiles, access: access };
 
-  renderStats(profiles, attempts, access);
-  renderCandidatesTable(profiles, attempts, access);
-  renderAttemptsTable(attempts, profiles);
+  /* Rows come newest-first, so the first row seen per user is their
+     most recent login. */
+  const lastLoginByUser = {};
+  logins.forEach(function (row) {
+    if (!lastLoginByUser[row.user_id]) {
+      lastLoginByUser[row.user_id] = row.login_at;
+    }
+  });
+
+  renderStats(profiles, access);
+  renderCandidatesTable(profiles, access, lastLoginByUser);
 
   if (reportsResult.error) {
     renderEmptyState(reportsContent, "Wrong answer reports could not be loaded.");
@@ -334,7 +360,7 @@ async function loadDashboard() {
   }
 }
 
-function renderStats(profiles, attempts, access) {
+function renderStats(profiles, access) {
   statGrid.innerHTML = "";
 
   if (profiles) {
@@ -342,19 +368,6 @@ function renderStats(profiles, attempts, access) {
       return roleLabel(p) !== "admin";
     }).length;
     addStatCard("Registered Candidates", String(candidateCount), "blue");
-  }
-
-  if (attempts) {
-    addStatCard("Quiz Attempts", String(attempts.length), "green");
-
-    let latest = "—";
-    if (attempts.length > 0 && attempts[0].completed_at) {
-      const d = new Date(attempts[0].completed_at);
-      if (!isNaN(d.getTime())) {
-        latest = d.toLocaleDateString() + " " + d.toLocaleTimeString();
-      }
-    }
-    addStatCard("Last Activity", latest, "orange");
   }
 
   if (access) {
@@ -366,7 +379,7 @@ function renderStats(profiles, attempts, access) {
   }).length;
   addStatCard("Pending Reports", String(pendingReports), "red");
 
-  if (!profiles && !attempts && !access) {
+  if (!profiles && !access) {
     const el = document.createElement("p");
     el.className = "empty-state";
     el.textContent = "Dashboard data could not be loaded.";
@@ -415,16 +428,6 @@ function buildTable(headers) {
   return { wrap: wrap, tbody: tbody };
 }
 
-function addTableRow(tbody, values) {
-  const tr = document.createElement("tr");
-  values.forEach(function (v) {
-    const td = document.createElement("td");
-    td.textContent = v;
-    tr.appendChild(td);
-  });
-  tbody.appendChild(tr);
-}
-
 function renderEmptyState(container, message) {
   container.innerHTML = "";
   const el = document.createElement("p");
@@ -446,7 +449,17 @@ function renderTableOrMessage(container, buildFn, rows, emptyMessage) {
   container.appendChild(table.wrap);
 }
 
-function renderCandidatesTable(profiles, attempts, access) {
+const ACCESS_STATUSES = ["pending", "paid", "trial", "expired"];
+
+function toDateInputValue(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  const pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+
+function renderCandidatesTable(profiles, access, lastLoginByUser) {
   if (!profiles) {
     renderEmptyState(candidatesContent, "Candidate list could not be loaded.");
     return;
@@ -457,19 +470,6 @@ function renderCandidatesTable(profiles, attempts, access) {
     accessByUser[row.user_id] = row;
   });
 
-  const attemptStatsByUser = {};
-  (attempts || []).forEach(function (a) {
-    const stats = attemptStatsByUser[a.user_id];
-    if (!stats) {
-      attemptStatsByUser[a.user_id] = { count: 1, last: a.completed_at || null };
-    } else {
-      stats.count += 1;
-      if (a.completed_at && (!stats.last || new Date(a.completed_at) > new Date(stats.last))) {
-        stats.last = a.completed_at;
-      }
-    }
-  });
-
   const candidates = profiles.filter(function (p) {
     return roleLabel(p) !== "admin";
   });
@@ -477,20 +477,61 @@ function renderCandidatesTable(profiles, attempts, access) {
   renderTableOrMessage(
     candidatesContent,
     function () {
-      const table = buildTable(["Name", "Role", "Payment Status", "Access Expiry", "Last Activity", "Attempts"]);
+      const table = buildTable(["Name", "Role", "Payment Status", "Access Expiry", "Last Login", "Action"]);
 
       candidates.forEach(function (p) {
         const acc = accessByUser[p.id];
-        const stats = attemptStatsByUser[p.id];
+        const lastLogin = lastLoginByUser ? lastLoginByUser[p.id] : null;
+        const tr = document.createElement("tr");
 
-        addTableRow(table.tbody, [
-          displayName(p),
-          roleLabel(p),
-          acc && acc.payment_status ? String(acc.payment_status) : "No access record",
-          acc ? formatDate(acc.expires_at) : "—",
-          stats && stats.last ? formatDate(stats.last) : "No attempts yet",
-          stats ? String(stats.count) : "0"
-        ]);
+        addReportCell(tr, displayName(p));
+        addReportCell(tr, roleLabel(p));
+
+        /* Editable payment status */
+        const statusSelect = document.createElement("select");
+        statusSelect.className = "access-select";
+        statusSelect.setAttribute("aria-label", "Payment status for " + displayName(p));
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "— set status —";
+        statusSelect.appendChild(placeholder);
+
+        ACCESS_STATUSES.forEach(function (s) {
+          const opt = document.createElement("option");
+          opt.value = s;
+          opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+          statusSelect.appendChild(opt);
+        });
+
+        if (acc && acc.payment_status) {
+          statusSelect.value = acc.payment_status;
+        }
+        addReportCell(tr, statusSelect);
+
+        /* Editable access expiry */
+        const dateInput = document.createElement("input");
+        dateInput.type = "date";
+        dateInput.className = "access-date";
+        dateInput.setAttribute("aria-label", "Access expiry for " + displayName(p));
+        if (acc && acc.expires_at) {
+          dateInput.value = toDateInputValue(acc.expires_at);
+        }
+        addReportCell(tr, dateInput);
+
+        addReportCell(tr, lastLogin ? formatDate(lastLogin) : "Never");
+
+        /* Save action */
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.className = "btn btn-outline report-action-btn";
+        saveBtn.textContent = "Save";
+        saveBtn.addEventListener("click", function () {
+          saveCandidateAccess(p, statusSelect.value, dateInput.value, saveBtn);
+        });
+        addReportCell(tr, saveBtn);
+
+        table.tbody.appendChild(tr);
       });
 
       return table;
@@ -500,41 +541,72 @@ function renderCandidatesTable(profiles, attempts, access) {
   );
 }
 
-function renderAttemptsTable(attempts, profiles) {
-  if (!attempts) {
-    renderEmptyState(attemptsContent, "Quiz attempts could not be loaded.");
+/* Upsert the candidate's access row (creates it if missing — RLS allows
+   admins to insert and update any candidate's record). */
+async function saveCandidateAccess(profile, status, expiryDate, button) {
+  setDashboardError("");
+
+  if (!status) {
+    setDashboardError("Choose a payment status before saving for " + displayName(profile) + ".");
     return;
   }
 
-  const nameById = {};
-  (profiles || []).forEach(function (p) {
-    nameById[p.id] = displayName(p);
+  const expiresAt = expiryDate ? new Date(expiryDate + "T23:59:59").toISOString() : null;
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  let error = null;
+  try {
+    const result = await supabaseClient.from("candidate_access").upsert(
+      {
+        user_id: profile.id,
+        payment_status: status,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "user_id" }
+    );
+    error = result.error;
+  } catch (err) {
+    error = { message: (err && err.message) || "Network error" };
+  }
+
+  if (error) {
+    button.disabled = false;
+    button.textContent = "Save";
+    setDashboardError(
+      "Could not save candidate access: " + error.message +
+      " (if the policy is missing, run supabase-candidate-access-setup.sql in the SQL Editor.)"
+    );
+    return;
+  }
+
+  /* Keep the in-memory data in sync so stats re-render correctly. */
+  if (!dashboardData.access) dashboardData.access = [];
+  const existing = dashboardData.access.find(function (row) {
+    return row.user_id === profile.id;
   });
+  if (existing) {
+    existing.payment_status = status;
+    existing.expires_at = expiresAt;
+    existing.updated_at = new Date().toISOString();
+  } else {
+    dashboardData.access.push({
+      user_id: profile.id,
+      payment_status: status,
+      expires_at: expiresAt,
+      updated_at: new Date().toISOString()
+    });
+  }
 
-  renderTableOrMessage(
-    attemptsContent,
-    function () {
-      const table = buildTable(["Candidate", "Set", "Score", "Correct", "Wrong", "Total", "Completed At"]);
+  renderStats(dashboardData.profiles, dashboardData.access);
 
-      attempts.forEach(function (a) {
-        const name = nameById[a.user_id] || "Unknown candidate";
-
-        addTableRow(table.tbody, [
-          name,
-          a.set_name ? String(a.set_name) : "—",
-          a.score === null || a.score === undefined ? "—" : String(a.score),
-          a.correct_answers === null || a.correct_answers === undefined ? "—" : String(a.correct_answers),
-          a.wrong_answers === null || a.wrong_answers === undefined ? "—" : String(a.wrong_answers),
-          a.total_questions === null || a.total_questions === undefined ? "—" : String(a.total_questions),
-          formatDate(a.completed_at)
-        ]);
-      });
-
-      return table;
-    },
-    attempts,
-    "No quiz attempts recorded yet."
-  );
+  button.textContent = "Saved ✓";
+  setTimeout(function () {
+    button.disabled = false;
+    button.textContent = "Save";
+  }, 1500);
 }
 
 /* ------------------ Wrong answer reports ------------------ */
@@ -659,7 +731,7 @@ async function setReportStatus(report, status, button) {
 
   setDashboardError("");
   report.status = status;
-  renderStats(dashboardData.profiles, dashboardData.attempts, dashboardData.access);
+  renderStats(dashboardData.profiles, dashboardData.access);
   renderReportsTable();
 }
 

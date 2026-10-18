@@ -1,6 +1,7 @@
 ﻿-- ======================================================
 -- GMDSS MCQ - Wrong Answer Reports schema
--- Run this once in the Supabase SQL Editor.
+-- Run this in the Supabase SQL Editor.
+-- Safe to re-run (idempotent).
 -- ======================================================
 
 create table if not exists public.wrong_answer_reports (
@@ -24,12 +25,14 @@ create index if not exists idx_wrong_reports_created
 alter table public.wrong_answer_reports enable row level security;
 
 -- Anyone (including anonymous test takers) may submit a report.
+drop policy if exists "Anyone can submit a report" on public.wrong_answer_reports;
 create policy "Anyone can submit a report"
   on public.wrong_answer_reports for insert
   to anon, authenticated
   with check (true);
 
 -- Only administrators may read reports.
+drop policy if exists "Admins can read reports" on public.wrong_answer_reports;
 create policy "Admins can read reports"
   on public.wrong_answer_reports for select
   to authenticated
@@ -39,6 +42,7 @@ create policy "Admins can read reports"
   ));
 
 -- Only administrators may change the status.
+drop policy if exists "Admins can update reports" on public.wrong_answer_reports;
 create policy "Admins can update reports"
   on public.wrong_answer_reports for update
   to authenticated

@@ -70,11 +70,13 @@ body {
 }
 
 .brand-logo {
-  width: 72px;
+  width: fit-content;
+  min-width: 72px;
   height: 72px;
   margin: 0 auto 14px;
+  padding: 0 24px;
   background: linear-gradient(135deg, var(--navy), var(--navy-light));
-  border-radius: 50%;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -82,6 +84,7 @@ body {
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 1px;
+  white-space: nowrap;
   box-shadow: 0 6px 20px rgba(11, 37, 69, 0.3);
 }
 

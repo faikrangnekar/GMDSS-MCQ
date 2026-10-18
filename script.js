@@ -264,17 +264,17 @@ function prefillCandidateName(client, session, nameInput) {
 
 /* ==================== CANDIDATE ACCESS GATE ==================== */
 
-/* Blocks candidates whose payment_status is not paid/trial, or whose
-   access expiry has passed. Admins always pass. Returns null when access
-   is allowed, or { title, body } describing why it is blocked. */
+/* Decides whether the candidate may start a test. Admins always pass.
+   A missing access record ALLOWS access by default, so new candidates can
+   take tests immediately — the admin can restrict anyone by setting an
+   explicit status (pending/expired) or an expiry date from the dashboard.
+   Returns null when allowed, or { title, body } describing the block. */
 function evaluateAccess(profile, access) {
   if (profile && profile.role === "admin") return null;
 
   if (!access) {
-    return {
-      title: "Access Not Activated",
-      body: "Your account has not been granted test access yet. Please contact the administrator to activate your access."
-    };
+    /* No record yet: default open. */
+    return null;
   }
 
   if (access.payment_status === "pending") {

@@ -230,6 +230,82 @@ function requireSession(onReady) {
   });
 }
 
+/* Wall-clock time on this device ("YYYY-MM-DD HH:MM:SS") — mirrors the
+   helper in auth.js. login_at (server clock, UTC) is still written by the
+   database; login_local makes the Supabase table readable as-is. */
+function formatLocalNow() {
+  const d = new Date();
+  const pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return (
+    d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+    " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())
+  );
+}
+
+/* Records a login when the candidate arrives at the start page with an
+   existing session — this is what happens on "Remember Me" return visits,
+   where no login form is submitted and auth.js never runs. A per-tab flag
+   (set by auth.js after a form login) keeps each login recorded exactly
+   once, so refreshing or returning to the home page mid-session does not
+   create extra rows. */
+function recordSessionStart(client, session) {
+  if (!client || !session || !session.user) return;
+
+  let alreadyRecorded = false;
+  try {
+    alreadyRecorded = window.sessionStorage.getItem("gmdss_login_recorded") === "1";
+  } catch (e) {
+    /* ignore storage errors */
+  }
+  if (alreadyRecorded) return;
+
+  const meta = session.user.user_metadata || {};
+  const payload = { user_id: session.user.id, login_local: formatLocalNow() };
+
+  const name =
+    String(meta.display_name || "").trim() ||
+    String(store.get(KEYS.name, "") || "").trim();
+  if (name) payload.candidate_name = name;
+
+  function markRecorded() {
+    try {
+      window.sessionStorage.setItem("gmdss_login_recorded", "1");
+    } catch (e) {
+      /* ignore storage errors */
+    }
+  }
+
+  function send(body, canFallback) {
+    try {
+      client
+        .from("login_history")
+        .insert(body)
+        .then(function (res) {
+          if (res && res.error) {
+            if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
+              /* Older schema (SQL not re-run yet): retry without the column. */
+              send(
+                { user_id: body.user_id, candidate_name: body.candidate_name },
+                false
+              );
+              return;
+            }
+            console.warn("Could not record login:", res.error.message);
+          } else {
+            markRecorded();
+          }
+        })
+        .catch(function (err) {
+          console.warn("Could not record login:", err && err.message ? err.message : err);
+        });
+    } catch (e) {
+      console.warn("Could not record login:", e && e.message ? e.message : e);
+    }
+  }
+
+  send(payload, true);
+}
+
 /* Prefill the candidate name field from the signed-in account. */
 function prefillCandidateName(client, session, nameInput) {
   if (!nameInput) return;
@@ -325,6 +401,7 @@ function initHomePage(client, session) {
 
 if (isHomePage) {
   requireSession(function (client, session) {
+    recordSessionStart(client, session);
     initHomePage(client, session);
   });
 }

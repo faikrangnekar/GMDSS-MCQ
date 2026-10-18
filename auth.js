@@ -132,29 +132,70 @@ function isValidBirthDate(value) {
    the login itself, but failures are logged to the console so problems
    (most commonly: the supabase-login-history.sql file was not run) are
    visible instead of silent. */
+/* Wall-clock time on this device at the exact moment of login, formatted
+   as "YYYY-MM-DD HH:MM:SS". login_at (server clock, UTC) stays the
+   authoritative instant; login_local makes the Supabase table readable
+   in the real local time. */
+function formatLocalNow() {
+  const d = new Date();
+  const pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return (
+    d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+    " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())
+  );
+}
+
+/* Per-tab flag shared with script.js: set after a login is recorded so
+   the start page's session-start hook does not record the same login a
+   second time. Cleared automatically when the tab/browser session ends. */
+function markLoginRecorded() {
+  try {
+    window.sessionStorage.setItem("gmdss_login_recorded", "1");
+  } catch (e) {
+    /* ignore storage errors */
+  }
+}
+
 function recordLogin(client, userId, candidateName) {
   if (!client || !userId) return;
 
-  const payload = { user_id: userId };
+  const payload = { user_id: userId, login_local: formatLocalNow() };
   if (candidateName && String(candidateName).trim()) {
     payload.candidate_name = String(candidateName).trim();
   }
 
-  try {
-    client
-      .from("login_history")
-      .insert(payload)
-      .then(function (res) {
-        if (res && res.error) {
-          console.warn("Could not record login:", res.error.message);
-        }
-      })
-      .catch(function (err) {
-        console.warn("Could not record login:", err && err.message ? err.message : err);
-      });
-  } catch (e) {
-    console.warn("Could not record login:", e && e.message ? e.message : e);
+  function send(body, canFallback) {
+    try {
+      client
+        .from("login_history")
+        .insert(body)
+        .then(function (res) {
+          if (res && res.error) {
+            if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
+              /* Older schema (SQL not re-run yet): retry without the column. */
+              send(
+                {
+                  user_id: body.user_id,
+                  candidate_name: body.candidate_name
+                },
+                false
+              );
+              return;
+            }
+            console.warn("Could not record login:", res.error.message);
+          } else {
+            markLoginRecorded();
+          }
+        })
+        .catch(function (err) {
+          console.warn("Could not record login:", err && err.message ? err.message : err);
+        });
+    } catch (e) {
+      console.warn("Could not record login:", e && e.message ? e.message : e);
+    }
   }
+
+  send(payload, true);
 }
 
 /* ------------------ Page detection ------------------ */

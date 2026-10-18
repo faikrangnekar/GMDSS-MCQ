@@ -91,6 +91,17 @@ function formatDate(value) {
   return d.toLocaleString();
 }
 
+/* Wall-clock time on this device at the exact moment of login
+   ("YYYY-MM-DD HH:MM:SS") — mirrors auth.js's helper for login_history. */
+function formatLocalNow() {
+  const d = new Date();
+  const pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return (
+    d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+    " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())
+  );
+}
+
 function displayName(profile) {
   if (profile && profile.display_name && String(profile.display_name).trim()) {
     return String(profile.display_name).trim();
@@ -254,18 +265,32 @@ loginForm.addEventListener("submit", async function (e) {
   if (data && data.user) {
     try {
       const meta = data.user.user_metadata || {};
-      supabaseClient
-        .from("login_history")
-        .insert({
-          user_id: data.user.id,
-          candidate_name: meta.display_name || data.user.email || null
-        })
-        .then(function (res) {
-          if (res && res.error) console.warn("Could not record login:", res.error.message);
-        })
-        .catch(function (err) {
-          console.warn("Could not record login:", err && err.message ? err.message : err);
-        });
+      const loginPayload = {
+        user_id: data.user.id,
+        candidate_name: meta.display_name || data.user.email || null,
+        login_local: formatLocalNow()
+      };
+
+      function sendLogin(body, canFallback) {
+        supabaseClient
+          .from("login_history")
+          .insert(body)
+          .then(function (res) {
+            if (res && res.error) {
+              if (canFallback && res.error.message && res.error.message.indexOf("login_local") !== -1) {
+                /* Older schema (SQL not re-run yet): retry without the column. */
+                sendLogin({ user_id: body.user_id, candidate_name: body.candidate_name }, false);
+                return;
+              }
+              console.warn("Could not record login:", res.error.message);
+            }
+          })
+          .catch(function (err) {
+            console.warn("Could not record login:", err && err.message ? err.message : err);
+          });
+      }
+
+      sendLogin(loginPayload, true);
     } catch (e) {
       console.warn("Could not record login:", e && e.message ? e.message : e);
     }

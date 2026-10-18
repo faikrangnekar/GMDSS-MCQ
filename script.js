@@ -262,110 +262,6 @@ function prefillCandidateName(client, session, nameInput) {
     });
 }
 
-/* ==================== CANDIDATE ACCESS GATE ==================== */
-
-/* Decides whether the candidate may start a test. Admins always pass.
-   A missing access record ALLOWS access by default, so new candidates can
-   take tests immediately — the admin can restrict anyone by setting an
-   explicit status (pending/expired) or an expiry date from the dashboard.
-   Returns null when allowed, or { title, body } describing the block. */
-function evaluateAccess(profile, access) {
-  if (profile && profile.role === "admin") return null;
-
-  if (!access) {
-    /* No record yet: default open. */
-    return null;
-  }
-
-  if (access.payment_status === "pending") {
-    return {
-      title: "Payment Pending",
-      body: "Your access is awaiting payment confirmation. Please complete your payment or contact the administrator."
-    };
-  }
-
-  if (access.payment_status === "expired") {
-    return {
-      title: "Access Expired",
-      body: "Your test access has expired. Please renew your access to continue."
-    };
-  }
-
-  if (access.expires_at && new Date(access.expires_at).getTime() <= Date.now()) {
-    return {
-      title: "Access Expired",
-      body:
-        "Your test access expired on " +
-        new Date(access.expires_at).toLocaleDateString() +
-        ". Please renew your access to continue."
-    };
-  }
-
-  if (access.payment_status === "paid" || access.payment_status === "trial") {
-    return null;
-  }
-
-  return {
-    title: "Access Not Active",
-    body: "Your access is not active (" + access.payment_status + "). Please contact the administrator."
-  };
-}
-
-function checkCandidateAccess(client, session, onResult) {
-  if (!client || !session || !session.user) {
-    onResult(null);
-    return;
-  }
-
-  Promise.all([
-    client.from("profiles").select("role").eq("id", session.user.id).maybeSingle(),
-    client.from("candidate_access").select("payment_status, expires_at").eq("user_id", session.user.id).maybeSingle()
-  ]).then(function (res) {
-    const profileRes = res[0];
-    const accessRes = res[1];
-
-    if (profileRes.error || accessRes.error) {
-      /* Fail open: a missing table/policy should not lock everyone out.
-         The problem is logged so it can be fixed in the SQL Editor. */
-      console.warn(
-        "Could not verify candidate access:",
-        (profileRes.error && profileRes.error.message) ||
-          (accessRes.error && accessRes.error.message)
-      );
-      onResult(null);
-      return;
-    }
-
-    onResult(evaluateAccess(profileRes.data, accessRes.data));
-  }).catch(function (err) {
-    console.warn("Could not verify candidate access:", err && err.message ? err.message : err);
-    onResult(null);
-  });
-}
-
-function showAccessNotice(title, body) {
-  const startForm = document.getElementById("start-form");
-  const notice = document.getElementById("accessNotice");
-  const noticeTitle = document.getElementById("accessNoticeTitle");
-  const noticeBody = document.getElementById("accessNoticeBody");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const authSwitch = document.querySelector(".auth-switch");
-
-  if (startForm) startForm.hidden = true;
-  if (authSwitch) authSwitch.hidden = true;
-  if (noticeTitle) noticeTitle.textContent = title;
-  if (noticeBody) noticeBody.textContent = body;
-  if (notice) notice.hidden = false;
-
-  if (logoutBtn) {
-    logoutBtn.hidden = false;
-    logoutBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      logout();
-    });
-  }
-}
-
 /* ==================== HOME PAGE ==================== */
 
 function initHomePage(client, session) {
@@ -429,13 +325,7 @@ function initHomePage(client, session) {
 
 if (isHomePage) {
   requireSession(function (client, session) {
-    checkCandidateAccess(client, session, function (blockReason) {
-      if (blockReason) {
-        showAccessNotice(blockReason.title, blockReason.body);
-        return;
-      }
-      initHomePage(client, session);
-    });
+    initHomePage(client, session);
   });
 }
 

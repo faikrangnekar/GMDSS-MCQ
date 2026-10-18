@@ -11,13 +11,17 @@
 
 -- 1. Profiles table -------------------------------------------------
 create table if not exists public.profiles (
-  id            uuid primary key references auth.users (id) on delete cascade,
-  display_name  text,
-  birth_date    date,
-  phone_number  text,
-  email         text,
-  role          text not null default 'candidate',
-  created_at    timestamptz not null default now()
+  id                uuid primary key references auth.users (id) on delete cascade,
+  display_name      text,
+  birth_date        date,
+  phone_number      text,
+  email             text,
+  role              text not null default 'candidate',
+  created_at        timestamptz not null default now(),
+  -- Exact time of the most recent login (UTC instant + device wall-clock).
+  -- Maintained automatically by supabase-login-history.sql's trigger.
+  last_login_at     timestamptz,
+  last_login_local  text
 );
 
 -- Add any columns that may be missing on an existing table.
@@ -27,6 +31,8 @@ alter table public.profiles add column if not exists phone_number text;
 alter table public.profiles add column if not exists email        text;
 alter table public.profiles add column if not exists role         text not null default 'candidate';
 alter table public.profiles add column if not exists created_at   timestamptz not null default now();
+alter table public.profiles add column if not exists last_login_at    timestamptz;
+alter table public.profiles add column if not exists last_login_local text;
 
 -- 2. Helper: is the current user an administrator? -------------------
 -- SECURITY DEFINER avoids "infinite recursion" when policies on

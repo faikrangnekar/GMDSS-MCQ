@@ -124,6 +124,16 @@ function normalizeSupabaseUrl(url) {
   return value;
 }
 
+/* Must match auth.js/script.js: session lives in localStorage when
+   "Remember me" is on (the default), sessionStorage when it is off. */
+function authRememberPreference() {
+  try {
+    return window.localStorage.getItem("gmdss_remember") !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+
 function init() {
   const url = normalizeSupabaseUrl(configValue("supabaseUrl"));
   const key = configValue("supabaseAnonKey");
@@ -142,7 +152,7 @@ function init() {
 
   supabaseClient = window.supabase.createClient(url, key, {
     auth: {
-      storage: window.sessionStorage,
+      storage: authRememberPreference() ? window.localStorage : window.sessionStorage,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true

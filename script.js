@@ -154,6 +154,25 @@ function supabaseConfigValue(name) {
   return cfg[name].trim();
 }
 
+/* Must match auth.js: the auth pages store the session in localStorage when
+   "Remember me" is on (the default) and sessionStorage when it is off.
+   Using a different storage here made index.html fail to see the session
+   that login.html had just created, causing an endless login/index
+   redirect loop (page flickering between the two pages). */
+const AUTH_REMEMBER_KEY = "gmdss_remember";
+
+function authRememberPreference() {
+  try {
+    return window.localStorage.getItem(AUTH_REMEMBER_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+
+function authSessionStorage() {
+  return authRememberPreference() ? window.localStorage : window.sessionStorage;
+}
+
 /* Cached so every call reuses one client. Creating a new client per call
    triggers Supabase's "multiple GoTrueClient instances" warning and can
    cause session-sync flicker/redirect loops across pages. */
@@ -179,7 +198,7 @@ function getAuthClient() {
   try {
     _authClientCache = window.supabase.createClient(url, key, {
       auth: {
-        storage: window.sessionStorage,
+        storage: authSessionStorage(),
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true

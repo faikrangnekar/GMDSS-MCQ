@@ -42,6 +42,11 @@ function saveRememberPreference(remember) {
   }
 }
 
+/* Reuse one client per storage type. Creating a fresh client on every call
+   triggers Supabase's "multiple GoTrueClient instances" warning, which
+   causes competing session-sync attempts and page flicker. */
+const _authClientCache = {};
+
 function makeAuthClient(remember) {
   const url = normalizeSupabaseUrl(configValue("supabaseUrl"));
   const key = configValue("supabaseAnonKey");
@@ -55,7 +60,10 @@ function makeAuthClient(remember) {
     return null;
   }
 
-  return window.supabase.createClient(url, key, {
+  const cacheKey = remember ? "local" : "session";
+  if (_authClientCache[cacheKey]) return _authClientCache[cacheKey];
+
+  const client = window.supabase.createClient(url, key, {
     auth: {
       storage: authStorage(remember),
       persistSession: true,
@@ -63,6 +71,9 @@ function makeAuthClient(remember) {
       detectSessionInUrl: true
     }
   });
+
+  _authClientCache[cacheKey] = client;
+  return client;
 }
 
 /* ------------------ UI helpers ------------------ */

@@ -191,7 +191,35 @@ function recordLogin(client, userId, candidateName) {
     });
   }
 
+  /* The database trigger (handle_auth_login) records the login first; if
+     its row is already there, skip so no duplicate is written. */
+  function serverAlreadyRecorded() {
+    return new Promise(function (resolve) {
+      try {
+        client
+          .from("login_history")
+          .select("id")
+          .eq("user_id", userId)
+          .gt("login_at", new Date(Date.now() - 60000).toISOString())
+          .limit(1)
+          .then(function (res) {
+            resolve(!!(res && res.data && res.data.length));
+          })
+          .catch(function () {
+            resolve(false);
+          });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
   return (async function () {
+    if (await serverAlreadyRecorded()) {
+      markLoginRecorded();
+      return true;
+    }
+
     let body = payload;
     let error = await sendOnce(body);
 

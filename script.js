@@ -294,6 +294,23 @@ function recordSessionStart(client, session) {
   }
 
   (async function () {
+    /* The database trigger (handle_auth_login) records the login first; if
+       its row is already there, skip so no duplicate is written. */
+    try {
+      const probe = await client
+        .from("login_history")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .gt("login_at", new Date(Date.now() - 60000).toISOString())
+        .limit(1);
+      if (probe && probe.data && probe.data.length) {
+        markRecorded();
+        return;
+      }
+    } catch (e) {
+      /* probe failure is fine: fall through and insert */
+    }
+
     let body = payload;
     let error = await sendOnce(body);
 

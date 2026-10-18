@@ -293,6 +293,20 @@ loginForm.addEventListener("submit", async function (e) {
 
       await Promise.race(
         (async function () {
+          /* The database trigger (handle_auth_login) records the sign-in
+             first; if its row is already there, skip the insert. */
+          try {
+            const probe = await supabaseClient
+              .from("login_history")
+              .select("id")
+              .eq("user_id", loginPayload.user_id)
+              .gt("login_at", new Date(Date.now() - 60000).toISOString())
+              .limit(1);
+            if (probe && probe.data && probe.data.length) return;
+          } catch (e) {
+            /* probe failure is fine: fall through and insert */
+          }
+
           let body = loginPayload;
           let loginError = await sendLoginOnce(body);
 

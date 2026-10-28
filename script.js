@@ -230,6 +230,49 @@ function requireSession(onReady) {
   });
 }
 
+/* ------------------ Candidate access ------------------ */
+
+function loadCandidateAccess(client, userId) {
+  if (!client || !userId) return Promise.resolve(null);
+  return client
+    .from("candidate_access")
+    .select("payment_status, expires_at")
+    .eq("user_id", userId)
+    .maybeSingle()
+    .then(function (res) {
+      if (res && res.error) throw res.error;
+      return res ? res.data : null;
+    });
+}
+
+function isAccessActive(access) {
+  if (!access) return false;
+  var status = access.payment_status;
+  if (status !== "paid" && status !== "trial") return false;
+  if (!access.expires_at) return true;
+  var expires = new Date(access.expires_at).getTime();
+  return !isNaN(expires) && expires > Date.now();
+}
+
+function requireActiveAccess(client, session, onAllowed) {
+  if (!client || !session || !session.user) {
+    onAllowed();
+    return;
+  }
+  loadCandidateAccess(client, session.user.id)
+    .then(function (access) {
+      if (isAccessActive(access)) {
+        onAllowed();
+      } else {
+        redirectTo("index.html");
+      }
+    })
+    .catch(function () {
+      /* Do not lock candidates out on a transient read failure. */
+      onAllowed();
+    });
+}
+
 /* Wall-clock time on this device ("YYYY-MM-DD HH:MM:SS") — mirrors the
    helper in auth.js. login_at (server clock, UTC) is still written by the
    database; login_local makes the Supabase table readable as-is. */
@@ -370,6 +413,98 @@ function prefillCandidateName(client, session, nameInput) {
 
 /* ==================== HOME PAGE ==================== */
 
+function startCashfreeCheckout(client) {
+  const payBtn = document.getElementById("pay-btn");
+  const payMessage = document.getElementById("pay-message");
+
+  function setBusy(busy) {
+    if (!payBtn) return;
+    payBtn.disabled = busy;
+    payBtn.textContent = busy ? "Starting payment..." : "Pay \u20b950 for 30 days";
+  }
+
+  function showMessage(text, isSuccess) {
+    if (!payMessage) return;
+    payMessage.textContent = text || "";
+    payMessage.classList.remove("form-error", "form-success");
+    payMessage.classList.add(isSuccess ? "form-success" : "form-error");
+    payMessage.hidden = !text;
+  }
+
+  if (!client) {
+    showMessage("Payment is not configured. Please contact the administrator.", false);
+    return;
+  }
+  if (typeof window.Cashfree !== "function") {
+    showMessage("Payment checkout could not load. Check your connection and try again.", false);
+    return;
+  }
+
+  setBusy(true);
+  showMessage("", false);
+
+  client.auth.getSession()
+    .then(function (res) {
+      const session = res && res.data ? res.data.session : null;
+      if (!session || !session.access_token) {
+        throw new Error("Your session has expired. Please log in again.");
+      }
+      const baseUrl = normalizeSupabaseUrl(supabaseConfigValue("supabaseUrl"));
+      return fetch(baseUrl + "/functions/v1/create-cashfree-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + session.access_token,
+          "apikey": supabaseConfigValue("supabaseAnonKey")
+        },
+        body: "{}"
+      });
+    })
+    .then(function (response) {
+      return response
+        .json()
+        .catch(function () {
+          return {};
+        })
+        .then(function (body) {
+          if (!response.ok) {
+            throw new Error(
+              (body && (body.error || body.message)) || "Could not start payment."
+            );
+          }
+          return body;
+        });
+    })
+    .then(function (data) {
+      if (!data || !data.payment_session_id) {
+        throw new Error("Cashfree did not return a payment session.");
+      }
+      const cashfree = window.Cashfree({
+        mode: data.mode === "production" ? "production" : "sandbox"
+      });
+      return cashfree.checkout({
+        paymentSessionId: data.payment_session_id,
+        redirectTarget: "_self"
+      });
+    })
+    .then(function (result) {
+      if (result && result.error) {
+        throw new Error(result.error.message || "Payment was not completed.");
+      }
+      /* With redirectTarget "_self" the page normally navigates away.
+         If checkout stays on the page, re-check access shortly. */
+      setBusy(false);
+      showMessage("Checking payment status...", true);
+      setTimeout(function () {
+        window.location.reload();
+      }, 3000);
+    })
+    .catch(function (err) {
+      setBusy(false);
+      showMessage((err && err.message) || "Could not start payment.", false);
+    });
+}
+
 function initHomePage(client, session) {
   const nameInput = document.getElementById("candidate-name");
   const setSelect = document.getElementById("test-set");
@@ -378,6 +513,13 @@ function initHomePage(client, session) {
   const logoutBtn = document.getElementById("logoutBtn");
   const authSwitch = document.querySelector(".auth-switch");
   const accountNote = document.getElementById("account-note");
+  const accessLoading = document.getElementById("access-loading");
+  const payPanel = document.getElementById("pay-panel");
+  const payBtn = document.getElementById("pay-btn");
+  const payMessage = document.getElementById("pay-message");
+  const accessNote = document.getElementById("access-note");
+  let accessActive = false;
+  let pollTimer = null;
 
   buildSetSelect(setSelect);
 
@@ -399,8 +541,115 @@ function initHomePage(client, session) {
 
   prefillCandidateName(client, session, nameInput);
 
+  function setPayMessage(text, isSuccess) {
+    if (!payMessage) return;
+    payMessage.textContent = text || "";
+    payMessage.classList.remove("form-error", "form-success");
+    payMessage.classList.add(isSuccess ? "form-success" : "form-error");
+    payMessage.hidden = !text;
+  }
+
+  function showAccess(active, access) {
+    accessActive = !!active;
+    if (accessLoading) accessLoading.hidden = true;
+    if (startForm) startForm.hidden = !active;
+    if (payPanel) payPanel.hidden = active;
+    if (accessNote) {
+      if (active && access && access.expires_at) {
+        accessNote.textContent =
+          "Access active until " + new Date(access.expires_at).toLocaleString() + ".";
+        accessNote.hidden = false;
+      } else if (active) {
+        accessNote.textContent = "Access active.";
+        accessNote.hidden = false;
+      } else {
+        accessNote.hidden = true;
+      }
+    }
+    if (active && pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function checkAccess() {
+    if (!client || !session || !session.user) {
+      showAccess(true, null);
+      return Promise.resolve(true);
+    }
+    return loadCandidateAccess(client, session.user.id)
+      .then(function (access) {
+        const active = isAccessActive(access);
+        showAccess(active, access);
+        return active;
+      })
+      .catch(function () {
+        showAccess(true, null);
+        return true;
+      });
+  }
+
+  function pollAccess(attempts) {
+    if (!client || !session || !session.user) {
+      showAccess(true, null);
+      return;
+    }
+    if (accessLoading) {
+      accessLoading.textContent = "Confirming payment...";
+      accessLoading.hidden = false;
+    }
+    if (startForm) startForm.hidden = true;
+    if (payPanel) payPanel.hidden = true;
+
+    loadCandidateAccess(client, session.user.id)
+      .then(function (access) {
+        if (isAccessActive(access)) {
+          showAccess(true, access);
+          return;
+        }
+        if (attempts <= 1) {
+          showAccess(false, null);
+          setPayMessage(
+            "Payment received. Activation may take a minute; refresh this page shortly.",
+            true
+          );
+          return;
+        }
+        pollTimer = setTimeout(function () {
+          pollAccess(attempts - 1);
+        }, 3000);
+      })
+      .catch(function () {
+        if (attempts <= 1) {
+          showAccess(false, null);
+          setPayMessage("Could not confirm payment yet. Refresh this page in a minute.", false);
+          return;
+        }
+        pollTimer = setTimeout(function () {
+          pollAccess(attempts - 1);
+        }, 3000);
+      });
+  }
+
+  if (payBtn) {
+    payBtn.addEventListener("click", function () {
+      startCashfreeCheckout(client);
+    });
+  }
+
+  if (new URLSearchParams(window.location.search).get("order_id")) {
+    pollAccess(20);
+  } else {
+    checkAccess();
+  }
+
   startForm.addEventListener("submit", function (e) {
     e.preventDefault();
+
+    if (!accessActive) {
+      setPayMessage("An active 30-day pass is required to start a test.", false);
+      return;
+    }
 
     const name = nameInput.value.trim();
 
@@ -862,7 +1111,9 @@ function initTestPage(authClient) {
 if (isTestPage) {
   requireSession(function (client, session) {
     recordSessionStart(client, session);
-    initTestPage(client);
+    requireActiveAccess(client, session, function () {
+      initTestPage(client);
+    });
   });
 }
 

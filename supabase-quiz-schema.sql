@@ -65,7 +65,11 @@ drop policy if exists "Users can upsert own access" on public.candidate_access;
 create policy "Users can upsert own access"
   on public.candidate_access for insert
   to authenticated
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and payment_status = 'pending'
+    and expires_at is null
+  );
 
 drop policy if exists "Admins can read all access" on public.candidate_access;
 create policy "Admins can read all access"

@@ -13,7 +13,16 @@
       <h1 class="main-title">GMDSS MCQ TEST</h1>
       <p class="subtitle">A practice test platform for the Global Maritime Distress and Safety System examination.</p>
 
-      <form id="start-form" novalidate>
+      <p class="small-note" id="access-loading">Checking access...</p>
+
+      <div id="pay-panel" class="pay-panel" hidden>
+        <p class="pay-title">30-day access</p>
+        <p class="pay-copy">Unlock all practice tests for 30 days.</p>
+        <button type="button" id="pay-btn" class="btn btn-primary btn-block">Pay &#8377;50 for 30 days</button>
+        <p class="form-error" id="pay-message" hidden></p>
+      </div>
+
+      <form id="start-form" novalidate hidden>
         <div class="field-group">
           <label for="candidate-name">Candidate Name</label>
           <input
@@ -34,6 +43,8 @@
         <button type="submit" id="start-btn" class="btn btn-primary btn-block">Start Test</button>
       </form>
 
+      <p class="small-note" id="access-note" hidden></p>
+
       <button type="button" id="logoutBtn" class="btn btn-outline btn-block" hidden>Logout</button>
 
       <p class="small-note">30 questions &middot; 30 minutes &middot; Select the best answer for each question.</p>
@@ -47,8 +58,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <script src="admin-config.js?v=2"></script>
   <script src="questions.js?v=2"></script>
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>

@@ -1,0 +1,7 @@
+project_id = "rwjvgvxxzjklnjigmwae"
+
+[functions.create-cashfree-order]
+verify_jwt = true
+
+[functions.cashfree-webhook]
+verify_jwt = false

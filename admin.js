@@ -362,7 +362,10 @@ async function loadDashboard() {
   let results;
   try {
     results = await Promise.all([
-      supabaseClient.from("profiles").select("id, display_name, role, created_at"),
+      supabaseClient
+        .from("profiles")
+        .select("id, display_name, role, created_at")
+        .order("created_at", { ascending: false }),
       supabaseClient.from("candidate_access").select("user_id, payment_status, expires_at, updated_at"),
       supabaseClient
         .from("login_history")

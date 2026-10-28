@@ -260,6 +260,7 @@ if (isSignupPage) {
   const phoneInput = document.getElementById("signup-phone");
   const passwordInput = document.getElementById("signup-password");
   const confirmInput = document.getElementById("signup-confirm");
+  const policyAgreeInput = document.getElementById("signup-policy-agree");
   const messageEl = document.getElementById("auth-message");
   const submitBtn = document.getElementById("signup-btn");
 
@@ -281,6 +282,12 @@ if (isSignupPage) {
 
     clearAuthMessage(messageEl);
     clearInvalid([nameInput, dobInput, emailInput, phoneInput, passwordInput, confirmInput]);
+
+    if (policyAgreeInput && !policyAgreeInput.checked) {
+      showAuthMessage(messageEl, "Please agree to the Terms & Conditions, Privacy Policy, and Refund Policy to create an account.", false);
+      policyAgreeInput.focus();
+      return;
+    }
 
     if (!fullName) {
       markInvalid(nameInput, true);

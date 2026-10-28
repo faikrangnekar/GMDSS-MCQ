@@ -284,7 +284,7 @@ if (isSignupPage) {
     clearInvalid([nameInput, dobInput, emailInput, phoneInput, passwordInput, confirmInput]);
 
     if (policyAgreeInput && !policyAgreeInput.checked) {
-      showAuthMessage(messageEl, "Please agree to the Terms & Conditions, Privacy Policy, and Refund Policy to create an account.", false);
+      showAuthMessage(messageEl, "Please accept the Terms & Conditions before creating your account.", false);
       policyAgreeInput.focus();
       return;
     }
@@ -347,7 +347,8 @@ if (isSignupPage) {
           data: {
             display_name: fullName,
             birth_date: dob,
-            phone_number: phone
+            phone_number: phone,
+            terms_accepted: policyAgreeInput && policyAgreeInput.checked ? true : false
           }
         }
       });
@@ -369,13 +370,16 @@ if (isSignupPage) {
        handles this, so failures here are ignored. */
     if (user) {
       try {
+        const nowIso = new Date().toISOString();
         await client.from("profiles").upsert(
           {
             id: user.id,
             display_name: fullName,
             birth_date: dob,
             phone_number: phone,
-            email: email
+            email: email,
+            terms_accepted: true,
+            terms_accepted_at: nowIso
           },
           { onConflict: "id" }
         );
